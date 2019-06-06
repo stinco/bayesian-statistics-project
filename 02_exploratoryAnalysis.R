@@ -144,3 +144,27 @@ for(i in 2:5){
 
 gg
 
+
+
+# Add humidity
+gg <- mort %>% 
+  dplyr::select(mean.temp, rel.humid, SO2_log, TSP, tot.mort, resp.mort) %>% 
+  ggpairs(lower = list(continuous = wrap("points", alpha = 0.1, size=1)))
+
+gg[6,6] <- ggplot(data = mort,
+                  aes(x = resp.mort)) +
+  geom_bar(color = "black", fill = "white")
+
+for(i in 2:6){
+  for(j in 1:(i-1)){
+    gg[i,j] <- gg[i,j] +
+      geom_smooth(method = "loess")
+  }
+}
+
+gg
+
+
+
+
+
