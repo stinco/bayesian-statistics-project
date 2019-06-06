@@ -26,6 +26,10 @@ summary(mort)
 
 mort
 
+# There are no NA
+apply(mort, 2, function(x) any(is.na(x)))
+
+
 ggpairs(mort,
         lower = list(continuous = wrap("points", alpha = 0.3, size=.1)),
         upper = list(combo = wrap("box", outlier.size = 0.1)),

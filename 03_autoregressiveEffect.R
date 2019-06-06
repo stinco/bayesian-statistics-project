@@ -14,7 +14,6 @@ library(gridExtra)
 library(tidyverse)
 library(plotly)
 
-install.packages("plotly")
 
 # Autoregressive effect ####
 
