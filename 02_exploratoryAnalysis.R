@@ -33,14 +33,14 @@ p1 <- ggplot(data = mort,
   scale_x_continuous(breaks = seq(0, 3650, by = 365))
 
 
-p1 <- ggplot(data = mort,
+p2 <- ggplot(data = mort,
        aes(x = day.num, y = resp.mort)) +
   geom_point(alpha = .5, size = .5) +
   geom_smooth(method = "loess", span = .1) +
   scale_x_continuous(breaks = seq(0, 3650, by = 365)) +
   scale_y_continuous(breaks = seq(0, max(mort$resp.mort)+1, by = 2))
 
-grid.arrange(p1, p1,
+grid.arrange(p1, p2,
              ncol = 1)
 
 hist(mort$tot.mort, breaks = 30)

@@ -123,9 +123,9 @@ str_detect(names(fit_gam_best$coefficients), "day.of.year")
 
 coef_temp <- fit_gam_best$coefficients[str_detect(names(fit_gam_best$coefficients), "temp")]
 
-x_temp = seq(min(mort$mean.temp), max(mort$mean.temp), by = .1)
+x_temp = seq(min(mort$mean.temp) - 10, max(mort$mean.temp) + 10, by = .1)
 
-mat_temp <- matrix(c(x, x^2, x^3, x^4, x^5, x^6, x^7, x^8, x^9),
+mat_temp <- matrix(c(x_temp, x_temp^2, x_temp^3, x_temp^4, x_temp^5, x_temp^6, x_temp^7, x_temp^8, x_temp^9),
        ncol = 9)
 
 plot(x_temp, as.vector(mat_temp %*% matrix(coef_temp)),
@@ -216,61 +216,45 @@ ggplot(data = mort,
 
 
 
+# Harvesting effect ####
+
+acf(fit_gam_best$residuals,
+    lag.max = 30)
+pacf(fit_gam_best$residuals,
+     lag.max = 30)
+
+
+# Prove fit_gam_best ####
+
+plot(fit_gam_best$linear.predictors)
+
+
+fit_gam_best$smooth
+
+
+fit_gam_best$smooth[[1]]
 
 
 
+# Inserisco l'interazione tra mean.temp e day.of.year ####
+
+fit_gam_int <- gam(tot_mort_prob ~ s(day.of.year, mean.temp) + factor(year) + weekend,
+    family = gaussian, data = mort)
+summary(fit_gam_int)
+
+plot(fit_gam_int)
+
+
+plot(fit_gam_int, scheme=1)
+
+plot(fit_gam_int, scheme=2)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+par(mfrow = c(1,2))
+plot(fit_gam_int, scheme=1)
+plot(fit_gam_int, scheme=2)
+par(mfrow = c(1,1))
 
 
 

@@ -13,6 +13,7 @@ library(arm)
 library(gridExtra)
 library(tidyverse)
 library(plotly)
+library(mgcv)       # For GAM model
 
 
 # Autoregressive effect ####
