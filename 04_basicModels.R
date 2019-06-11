@@ -391,17 +391,17 @@ dat_grid_fit_int <- predict(fit_gam_int, newdata = dat_grid, type = "response", 
 # lim = c(10, 40)
 
 
-gan_temp_doy <- gam(formula = mean.temp ~ s(day.of.year),
+gam_temp_doy <- gam(formula = mean.temp ~ s(day.of.year),
                     data = mort)
 
-# plot(gan_temp_doy)
+# plot(gam_temp_doy)
 
 
 alpha = 4
 
 dat_grid <- dat_grid %>% 
-  mutate(cloud_lw = predict(gan_temp_doy, data.frame(day.of.year)) - alpha*sqrt(gan_temp_doy$sig2),
-         cloud_up = predict(gan_temp_doy, data.frame(day.of.year)) + alpha*sqrt(gan_temp_doy$sig2),
+  mutate(cloud_lw = predict(gam_temp_doy, data.frame(day.of.year)) - alpha*sqrt(gam_temp_doy$sig2),
+         cloud_up = predict(gam_temp_doy, data.frame(day.of.year)) + alpha*sqrt(gam_temp_doy$sig2),
          cloud = (cloud_lw < mean.temp & mean.temp < cloud_up))
 
 dat_grid_1 <- dat_grid %>% 

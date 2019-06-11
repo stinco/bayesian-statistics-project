@@ -21,12 +21,10 @@ theme_set(theme_bw())
 
 
 fit_gam_noday <- gam(resp.mort ~ s(mean.temp) + s(rel.humid) + s(SO2_log) + s(TSP),
-                     family = poisson, offset = pop_m,
+                     family = poisson, offset = log(pop_m),
                      data = mort)
 
 summary(fit_gam_noday)
-
-
 
 par(mfrow = c(2,2))
 # plot(fit_gam_noday,
@@ -36,7 +34,7 @@ par(mfrow = c(1,1))
 
 
 fit_gam_noday_2 <- gam(resp.mort ~ s(mean.temp, rel.humid) + s(SO2_log) + s(TSP),
-                       family = poisson, offset = pop_m,
+                       family = poisson, offset = log(pop_m),
                        data = mort)
 
 summary(fit_gam_noday_2)
@@ -52,7 +50,7 @@ par(mfrow = c(1,1))
 
 
 fit_gam_noday_3 <- gam(resp.mort ~ s(mean.temp, rel.humid) + SO2_log + s(TSP),
-                       family = poisson, offset = pop_m,
+                       family = poisson, offset = log(pop_m),
                        data = mort)
 
 summary(fit_gam_noday_3)
@@ -64,7 +62,7 @@ par(mfrow = c(1,1))
 
 
 fit_gam_noday_4 <- gam(resp.mort ~ s(mean.temp, rel.humid) + s(SO2_log, TSP),
-                       family = poisson, offset = pop_m,
+                       family = poisson, offset = log(pop_m),
                        data = mort)
 
 summary(fit_gam_noday_4)
@@ -75,7 +73,7 @@ plot(fit_gam_noday_4,
 par(mfrow = c(1,1))
 
 
-AIC(fit_gam_noday)
+AIC(fit_gam_noday)   # The best
 AIC(fit_gam_noday_2)
 AIC(fit_gam_noday_3)
 AIC(fit_gam_noday_4)
@@ -84,24 +82,24 @@ AIC(fit_gam_noday_4)
 
 
 fit_gam_noday_e1 <- gam(resp.mort ~ s(mean.temp) + s(rel.humid) + SO2_log + s(TSP),
-                     family = poisson, offset = pop_m,
+                     family = poisson, offset = log(pop_m),
                      data = mort)
 
 fit_gam_noday_e2 <- gam(resp.mort ~ s(mean.temp) + rel.humid + s(SO2_log) + s(TSP),
-                        family = poisson, offset = pop_m,
+                        family = poisson, offset = log(pop_m),
                         data = mort)
 
 fit_gam_noday_e3 <- gam(resp.mort ~ s(mean.temp) + rel.humid + SO2_log + s(TSP),
-                        family = poisson, offset = pop_m,
+                        family = poisson, offset = log(pop_m),
                         data = mort)
 
 fit_gam_noday_e4 <- gam(resp.mort ~ s(mean.temp) + rel.humid + SO2_log,
-                        family = poisson, offset = pop_m,
+                        family = poisson, offset = log(pop_m),
                         data = mort)
 
 AIC(fit_gam_noday_e1)
 AIC(fit_gam_noday_e2)
-AIC(fit_gam_noday_e3)
+AIC(fit_gam_noday_e3) # The best
 AIC(fit_gam_noday_e4)
 
 fit_resp_gam_noday_best <- fit_gam_noday_e3
@@ -136,28 +134,28 @@ sum(abs(fit_resp_gam_noday_best$residuals / sqrt(fit_resp_gam_noday_best$sig2)) 
 # Model on resp.mort taking into account time ####
 
 gam(resp.mort ~ s(mean.temp) + s(rel.humid) + s(SO2_log) + s(TSP) + s(day.of.year),
-    family = poisson, offset = pop_m, data = mort) %>% 
+    family = poisson, offset = log(pop_m), data = mort) %>% 
   summary()
 
 gam(resp.mort ~ s(mean.temp) + s(SO2_log) + s(TSP) + s(day.of.year),
-    family = poisson, offset = pop_m, data = mort) %>% 
+    family = poisson, offset = log(pop_m), data = mort) %>% 
   summary()
 
 # gam(resp.mort ~ s(mean.temp) + s(SO2_log) + s(TSP) + s(day.of.year) + s(day.num),
-#     family = poisson, offset = pop_m, data = mort) %>%
+#     family = poisson, offset = log(pop_m), data = mort) %>%
 #   summary()
 
 gam(resp.mort ~ s(mean.temp) + s(SO2_log) + s(TSP) + s(day.of.year) + factor(year),
-    family = poisson, offset = pop_m, data = mort) %>% 
+    family = poisson, offset = log(pop_m), data = mort) %>% 
   summary()
 
 gam(resp.mort ~ s(mean.temp) + s(SO2_log) + s(day.of.year) + factor(year),
-    family = poisson, offset = pop_m, data = mort) %>% 
+    family = poisson, offset = log(pop_m), data = mort) %>% 
   summary()
 
 
 # gam(resp.mort ~ s(mean.temp) + s(SO2_log) + s(day.of.year) + factor(year) + day.of.week,
-#     family = poisson, offset = pop_m, data = mort) %>%
+#     family = poisson, offset = log(pop_m), data = mort) %>%
 #   summary()
 
 
@@ -167,12 +165,12 @@ mort <- mort %>%
   select(day.num, day.of.year, year, day.of.week, weekend, holiday, everything())
 
 # gam(resp.mort ~ s(mean.temp) + s(rel.humid) + s(SO2_log) + s(TSP) + s(day.of.year) + factor(year) + weekend,
-#     family = poisson, offset = pop_m, data = mort) %>% 
+#     family = poisson, offset = log(pop_m), data = mort) %>%
 #   summary()
 
 
 # gam(resp.mort ~ s(mean.temp) + s(SO2_log) + s(day.of.year) + factor(year) + holiday,
-#     family = poisson, offset = pop_m, data = mort) %>% 
+#     family = poisson, offset = log(pop_m), data = mort) %>% 
 #   summary()
 
 
@@ -181,7 +179,7 @@ mort <- mort %>%
 
 
 fit_gam_day_1 <- gam(resp.mort ~ s(mean.temp) + s(SO2_log) + s(day.of.year) + factor(year),
-                     family = poisson, offset = pop_m, data = mort)
+                     family = poisson, offset = log(pop_m), data = mort)
 
 par(mfrow = c(2,2))
 plot(fit_gam_day_1, residuals = TRUE, all.terms = TRUE, shade = TRUE)
@@ -189,14 +187,14 @@ par(mfrow = c(1,1))
 
 
 fit_gam_day_2 <- gam(resp.mort ~ s(mean.temp) + SO2_log + s(day.of.year) + factor(year),
-                     family = poisson, offset = pop_m, data = mort)
+                     family = poisson, offset = log(pop_m), data = mort)
 
 par(mfrow = c(2,2))
 plot(fit_gam_day_2, residuals = TRUE, all.terms = TRUE, shade = TRUE)
 par(mfrow = c(1,1))
 
 AIC(fit_gam_day_1)
-AIC(fit_gam_day_2)
+AIC(fit_gam_day_2) # Better
 
 
 
@@ -210,15 +208,11 @@ par(mfrow = c(1,1))
 
 
 
-
-
 # Con interazione
 
 fit_resp_gam_int <- gam(resp.mort ~ s(day.of.year, mean.temp) + SO2_log + factor(year),
-                   family = poisson, offset = pop_m, data = mort)
+                   family = poisson, offset = log(pop_m), data = mort)
 summary(fit_resp_gam_int)
-
-
 
 
 # par(mfrow = c(2,2))
@@ -233,8 +227,8 @@ AIC(fit_resp_gam_best)
 AIC(fit_resp_gam_int)  # The one with interaction is better
 
 layout(matrix(c(1,2,3,3), 2, 2))
-plot(fit_gam_best, residuals = TRUE, shade = TRUE)
-plot(fit_gam_int, scheme = 2)
+plot(fit_resp_gam_best, residuals = TRUE, shade = TRUE)
+plot(fit_resp_gam_int, scheme = 2)
 par(mfcol = c(1,1))
 
 
@@ -258,22 +252,23 @@ dat_grid <- as_tibble(grid)
 
 dat_grid <- dat_grid %>% 
   mutate(SO2_log = mean(mort$SO2_log),
-         year = 0)
+         year = 0,
+         pop_m = mean(mort$pop_m))
 
 dat_grid_fit_best <- predict(fit_resp_gam_best, newdata = dat_grid, type = "response", se = TRUE)
 dat_grid_fit_int <- predict(fit_resp_gam_int, newdata = dat_grid, type = "response", se = TRUE)
 
 
 
-gan_temp_doy <- gam(formula = mean.temp ~ s(day.of.year),
+gam_temp_doy <- gam(formula = mean.temp ~ s(day.of.year),
                     data = mort)
 
 
 alpha = 4
 
 dat_grid <- dat_grid %>% 
-  mutate(cloud_lw = predict(gan_temp_doy, data.frame(day.of.year)) - alpha*sqrt(gan_temp_doy$sig2),
-         cloud_up = predict(gan_temp_doy, data.frame(day.of.year)) + alpha*sqrt(gan_temp_doy$sig2),
+  mutate(cloud_lw = predict(gam_temp_doy, data.frame(day.of.year)) - alpha*sqrt(gam_temp_doy$sig2),
+         cloud_up = predict(gam_temp_doy, data.frame(day.of.year)) + alpha*sqrt(gam_temp_doy$sig2),
          cloud = (cloud_lw < mean.temp & mean.temp < cloud_up))
 
 dat_grid_1 <- dat_grid %>% 
@@ -338,7 +333,7 @@ ggplot(data = mort,
               se = F, size = 1.5, method = "lm")
 
 # The 2 lines are basically the same
-
+# There is no leverage effect for that point
 
 
 
