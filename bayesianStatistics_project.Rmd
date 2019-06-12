@@ -1,0 +1,318 @@
+---
+title: "Bayesian Statistics"
+subtitle: "Final Project"
+author: "Leonardo Stincone"
+date: "17th June 2019"
+output:
+  html_document:
+    toc: true
+editor_options: 
+  chunk_output_type: console
+---
+
+\newcommand*\diff{\mathop{}\mathrm{d}}
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, fig.align='center')
+```
+
+```{r, libraries, message = F}
+# Libraries
+
+library(SemiPar)   # For the dataset
+library(rstan)
+library(rstanarm)
+library(GGally)
+library(arm)
+library(gridExtra)
+library(tidyverse)
+library(plotly)
+library(mgcv)       # For GAM model
+# library(gamm4)      # For GAM model
+library(loo)        # For bayesian model comparison
+library(lme4)
+library(bayesplot)
+library(knitr)
+
+# Set plot themes
+theme_set(theme_bw())
+rstan_options(auto_write = TRUE)
+```
+
+
+# Description of the problem
+
+In this project I analysed a dataset regarding deaths in Milan. The dataset contains, for each day between 1/01/1980 and 31/12/1989:
+
+* the number of deaths occurred in Milan (`tot.mort`);
+* the number of deaths for respiratory issues in Milan (`resp.mort`).
+
+We have for each day some explanatory variables too:
+
+* the mean temperature (`mean.temp`);
+* the relative humidity (`rel.humid`);
+* the sulphur dioxide level in ambient air (`SO2`);
+* the total suspended particles in ambient air (`TSP`).
+
+The dataset has been described in [Vigotti, M.A., Rossi, G., Bisanti, L., Zanobetti, A. and Schwartz, J. (1996). Short term effect of urban air pollution on respiratory health in Milan, Italy, 1980-1989. Journal of Epidemiology and Community Health, 50, 71-75.](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1060893/) and it has been analysed in [Ruppert, D., Wand, M.P. and Carroll, R.J. (2003), Semiparametric Regression Cambridge University Press.](http://stat.tamu.edu/~carroll/semiregbook/).
+
+The aim of the project is to build a predictive model for `tot.mort` and `resp.mort` and to understand which are the variables that mostly affect the probability of death.
+
+# Explorative Data Analysis
+
+```{r, readData}
+theme_set(theme_bw())
+
+data(milan.mort)
+
+mort <- as_tibble(milan.mort)
+rm(milan.mort)
+```
+
+```{r dataWrangling1}
+# Day of week
+mort <- mort %>% 
+  mutate(day.of.week = factor(day.of.week))
+
+mort <- mort %>% 
+  mutate(SO2_log = log(mort$SO2 + 30))
+
+mort <- mort %>% 
+  mutate(day.of.year = day.num %% 365,
+         year = day.num %/% 365,
+         day.date = as.Date("1979-12-31") + day.num) %>% 
+  select(day.num, day.date, day.of.year, year, day.of.week, holiday,
+         mean.temp, rel.humid, SO2, SO2_log, TSP,
+         everything())
+
+```
+
+
+## Univariate descriptive analysis
+
+### Response variables
+
+```{r}
+p1 <- ggplot(mort,
+       aes(x = tot.mort)) +
+  geom_histogram(binwidth = 2)
+
+p2 <- ggplot(mort,
+       aes(x = resp.mort)) +
+  geom_bar()
+
+grid.arrange(p1, p2,
+             ncol = 2)
+```
+
+<!-- Commente on normal and poisson distribution -->
+
+
+#### Milan population
+
+<!-- Comment on poulation -->
+
+```{r, census_readData, message = F}
+census <- read_csv("milanoCensus.csv",
+         col_names = c("year", "date", "pop"))
+
+census <- census %>% 
+  mutate(pop_m = pop/1e6,
+         pop_k = pop/1e3,
+         interest = (year %in% c(1971, 1981, 1991)))
+```
+
+
+```{r, census_plot}
+ggplot(data = census,
+       aes(x = year, y = pop_m)) +
+  geom_point(size = 2) +
+  geom_area(alpha = .2, color = "black", fill = "blue") +
+  scale_y_continuous(limits = c(0, max(census$pop_m) + .1)) +
+  scale_x_continuous(breaks = census$year,
+                     minor_breaks = census$year) +
+  labs(x = "year", y = "population (millions)",
+       title = "Milan population", subtitle = "ISTAT census")
+```
+
+```{r, popInterpolation}
+census <- census %>% 
+  separate(date, into = c("day", "mese")) %>% 
+  mutate(month = as.integer(factor(mese, levels = c("gennaio",
+                                         "febbraio",
+                                         "marzo",
+                                         "aprile",
+                                         "maggio",
+                                         "giugno",
+                                         "luglio",
+                                         "agosto",
+                                         "settembre",
+                                         "ottobre",
+                                         "novembre",
+                                         "dicembre")))) %>% 
+  mutate(date = ISOdate(year, month, day))
+  
+
+day_num <- (365*10+2)
+
+pop_cens1 <- census$pop_m[census$year == 1981]
+pop_cens2 <- census$pop_m[census$year == 1991]
+
+delta_pop1 <- (census$pop_m[census$year == 1981] - census$pop_m[census$year == 1971]) /
+  as.integer(difftime(census$date[census$year == 1981], census$date[census$year == 1971], units = "days"))
+
+delta_pop2 <- (census$pop_m[census$year == 1991] - census$pop_m[census$year == 1981]) /
+  as.integer(difftime(census$date[census$year == 1991], census$date[census$year == 1981], units = "days"))
+
+
+# mort
+
+day_cens1 <- as.integer(difftime(census$date[census$year == 1981], ISOdate(1979, 12, 31), units = "days"))
+day_cens2 <- as.integer(difftime(census$date[census$year == 1991], ISOdate(1979, 12, 31), units = "days"))
+
+
+mort <- mort %>% 
+  mutate(interp = day.num < day_cens1) %>% 
+  mutate(pop_m = ifelse(interp,
+                        pop_cens1 - delta_pop1 * (day_cens1 - day.num),
+                        pop_cens1 + delta_pop2 * (day.num - day_cens1)
+                        ))
+
+mort <- mort %>% 
+  mutate(tot_mort_prob = tot.mort / pop_m,
+         resp_mort_prob = resp.mort / pop_m)
+```
+
+
+
+
+### Explanatory variables
+
+```{r}
+
+```
+
+
+```{r, so2}
+
+
+
+```
+
+
+
+
+## Multivariate descriptive analysis
+
+
+### Seasonal effect
+
+#### Mortality
+
+```{r, seasonal_totMort, fig.width=10, fig.height=5}
+ggplot(data = mort,
+       aes(x = day.date, y = tot_mort_prob)) +
+  geom_point(aes(col = factor(year)),
+             size = 1, alpha = .5,) +
+  geom_smooth(method = "loess", span = .1) +
+  # scale_x_continuous(breaks = seq(0, 3650, by = 365)) +
+  scale_x_date(breaks = as.Date(str_c(1980:1990, "-01-01"))) +
+  scale_color_brewer(palette = "RdBu") +
+  labs(x = "date", y = "Mortality rate (per million people)",
+       title = "Mortality rate in Milan through time") +
+  theme_dark() +
+  theme(legend.position = "none")
+```
+
+```{r, seasonal_respMort, fig.width=10, fig.height=5}
+ggplot(data = mort,
+       aes(x = day.date, y = resp_mort_prob)) +
+  geom_point(aes(col = factor(year)),
+             size = 1, alpha = .5,) +
+  geom_smooth(method = "loess", span = .1) +
+  # scale_x_continuous(breaks = seq(0, 3650, by = 365)) +
+  scale_x_date(breaks = as.Date(str_c(1980:1990, "-01-01"))) +
+  scale_color_brewer(palette = "RdBu") +
+  labs(x = "date", y = "Respiratory mortality rate (per million people)",
+       title = "Mortality rate for respiratory issues in Milan through time") +
+  theme_dark() +
+  theme(legend.position = "none")
+```
+
+<!-- Comment: outliers in summer 1983 and first quarter 1986  -->
+
+
+```{r, seasonal_mortTot_plotly, fig.width=10, fig.height=5}
+p1 <- mort %>% 
+  filter(year<10) %>% 
+  ggplot(aes(x = day.of.year, y = tot_mort_prob,
+             col = factor(year))) +
+  # geom_point(size = 1, alpha = .1,) +
+  geom_smooth(method = "loess", se = F) +
+  scale_x_continuous(breaks = seq(0, 365, by = 90)) +
+  scale_color_brewer(palette = "RdBu") +
+  labs(x = "Day of year", y = "Mortality rate (per million people)",
+       title = "Mortality rate in Milan through the year",
+       color = "year") +
+  theme_dark()
+
+ggplotly(p1)
+```
+
+
+```{r, seasonal_respTot_plotly, fig.width=10, fig.height=5}
+p2 <- mort %>% 
+  filter(year<10) %>% 
+  ggplot(aes(x = day.of.year, y = resp_mort_prob,
+             col = factor(year))) +
+  # geom_point(size = 1, alpha = .1,) +
+  geom_smooth(method = "loess", se = F) +
+  scale_x_continuous(breaks = seq(0, 365, by = 90)) +
+  scale_color_brewer(palette = "RdBu") +
+  labs(x = "date", y = "Respiratory mortality rate (per million people)",
+       title = "Mortality rate for respiratory issues in Milan through time",
+       color = "year") +
+  theme_dark()
+
+ggplotly(p2)
+```
+
+<!-- Correggi il tooltip -->
+
+
+#### Explantory variables
+
+
+
+### Relations
+
+
+
+
+# Statistical Models
+
+
+
+
+# Conclusions
+
+
+
+# Possible improvements
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

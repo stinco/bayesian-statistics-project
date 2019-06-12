@@ -91,8 +91,6 @@ pop2 <- 1369295
 census <- read_csv("milanoCensus.csv",
          col_names = c("year", "date", "pop"))
 
-
-
 census <- census %>% 
   mutate(pop_m = pop/1e6,
          pop_k = pop/1e3,
@@ -129,9 +127,7 @@ census <- census %>%
   mutate(date = ISOdate(year, month, day))
   
 
-
 day_num <- (365*10+2)
-
 
 pop_cens1 <- census$pop_m[census$year == 1981]
 pop_cens2 <- census$pop_m[census$year == 1991]
@@ -162,9 +158,9 @@ mort <- mort %>%
 ggplot(data = mort,
        aes(x = day.num, y = pop_m)) +
   # geom_point(size = .5) +
-  geom_line() +
+  geom_line() #+
   # geom_area(alpha = .2, color = "black", fill = "blue") +
-  scale_y_continuous(limits = c(0, max(census$pop_m) + 100))
+  # scale_y_continuous(limits = c(0, max(census$pop_m) + .1))
 
 
 
@@ -183,27 +179,45 @@ mort <- mort %>%
 
 
 
+# ggplot(data = mort,
+#        aes(x = day.num, y = tot_mort_prob)) +
+#   geom_point(aes(col = factor(year)),
+#              size = 1, alpha = .5,) +
+#   geom_smooth(method = "loess", span = .1) +
+#   scale_x_continuous(breaks = seq(0, 3650, by = 365)) +
+#   scale_color_brewer(palette = "RdBu")
+#   # scale_color_brewer(palette = "Spectral")
+
+
 ggplot(data = mort,
-       aes(x = day.num, y = tot_mort_prob)) +
+       aes(x = day.date, y = tot_mort_prob)) +
   geom_point(aes(col = factor(year)),
              size = 1, alpha = .5,) +
   geom_smooth(method = "loess", span = .1) +
-  scale_x_continuous(breaks = seq(0, 3650, by = 365)) +
-  scale_color_brewer(palette = "RdBu")
-  # scale_color_brewer(palette = "Spectral")
+  # scale_x_continuous(breaks = seq(0, 3650, by = 365)) +
+  scale_x_date(breaks = as.Date(str_c(1980:1990, "-01-01"))) +
+  scale_color_brewer(palette = "RdBu") +
+  labs(x = "date", y = "Mortality rate (per million people)",
+       title = "Mortality rate in Milan through time")
+# scale_color_brewer(palette = "Spectral")
 
 
 
-p <- mort %>% 
+
+p1 <- mort %>% 
   filter(year<10) %>% 
   ggplot(aes(x = day.of.year, y = tot_mort_prob,
              col = factor(year))) +
   # geom_point(size = 1, alpha = .1,) +
   geom_smooth(method = "loess", se = F) +
   scale_x_continuous(breaks = seq(0, 365, by = 90)) +
-  scale_color_brewer(palette = "RdBu")
+  scale_color_brewer(palette = "RdBu") +
+  labs(x = "Day of year", y = "Mortality rate (per million people)",
+       title = "Mortality rate in Milan through the year",
+       color = "year") +
+  theme_dark()
 
-ggplotly(p)
+ggplotly(p1)
 
 
 p <- mort %>% 

@@ -46,6 +46,18 @@ grid.arrange(p1, p2,
 hist(mort$tot.mort, breaks = 30)
 barplot(table(mort$resp.mort))
 
+p1 <- ggplot(mort,
+       aes(x = tot.mort)) +
+  geom_histogram(binwidth = 2)
+
+p2 <- ggplot(mort,
+       aes(x = resp.mort)) +
+  geom_bar()
+
+grid.arrange(p1, p2,
+             ncol = 2)
+
+
 plot(mort$tot.mort, mort$resp.mort)
 
 ggplot(data = mort,
@@ -120,6 +132,9 @@ hist(log(mort$SO2 + 30), breaks = 50)
 summary(mort$SO2)
 
 hist(mort$TSP, breaks = 50)
+hist(log(mort$TSP + 20), breaks = 50)
+
+summary(mort$TSP)
 
 hist(mort$mean.temp, breaks = 50)
 
