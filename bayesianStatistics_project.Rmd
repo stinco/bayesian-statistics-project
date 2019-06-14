@@ -121,7 +121,7 @@ $$
 Note that this is just a generic mortality rate, not a specific one. So, we are not considering the age distribution of the population. Given that within the period 1980-1990 the Milan population aged, even If the mortality at each age unchanged, the generic mortality rate would have increased.
 
 ```{r, census_readData, message = F, cache = T}
-census <- read_csv("milanoCensus.csv",
+census <- read_csv("data/milanoCensus.csv",
          col_names = c("year", "date", "pop"))
 
 census <- census %>% 
