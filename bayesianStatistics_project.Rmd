@@ -25,7 +25,6 @@ library(rstanarm)
 library(GGally)
 library(arm)
 library(gridExtra)
-library(tidyverse)
 library(plotly)
 library(mgcv)       # For GAM model
 # library(gamm4)      # For GAM model
@@ -33,6 +32,8 @@ library(loo)        # For bayesian model comparison
 library(lme4)
 library(bayesplot)
 library(knitr)
+library(tidyverse)
+library(plyr)    # For the mapvalue function
 
 # Set plot themes
 theme_set(theme_bw())
@@ -60,7 +61,7 @@ The aim of the project is to build a predictive model for `tot.mort` and `resp.m
 
 # Explorative Data Analysis
 
-```{r, readData}
+```{r, readData, cache = T}
 theme_set(theme_bw())
 
 data(milan.mort)
@@ -69,7 +70,7 @@ mort <- as_tibble(milan.mort)
 rm(milan.mort)
 ```
 
-```{r dataWrangling1}
+```{r dataWrangling1, cache = T}
 # Day of week
 mort <- mort %>% 
   mutate(day.of.week = factor(day.of.week))
@@ -92,7 +93,7 @@ mort <- mort %>%
 
 ### Response variables
 
-```{r}
+```{r, cache = T}
 p1 <- ggplot(mort,
        aes(x = tot.mort)) +
   geom_histogram(binwidth = 2)
@@ -112,7 +113,7 @@ grid.arrange(p1, p2,
 
 <!-- Comment on poulation -->
 
-```{r, census_readData, message = F}
+```{r, census_readData, message = F, cache = T}
 census <- read_csv("milanoCensus.csv",
          col_names = c("year", "date", "pop"))
 
@@ -123,7 +124,7 @@ census <- census %>%
 ```
 
 
-```{r, census_plot}
+```{r, census_plot, cache = T}
 ggplot(data = census,
        aes(x = year, y = pop_m)) +
   geom_point(size = 2) +
@@ -135,7 +136,7 @@ ggplot(data = census,
        title = "Milan population", subtitle = "ISTAT census")
 ```
 
-```{r, popInterpolation}
+```{r, popInterpolation, cache = T}
 census <- census %>% 
   separate(date, into = c("day", "mese")) %>% 
   mutate(month = as.integer(factor(mese, levels = c("gennaio",
@@ -188,17 +189,40 @@ mort <- mort %>%
 
 ### Explanatory variables
 
-```{r}
+`SO2_log = log(SO2 + 30)`
 
+```{r, explanatory_plot, fig.width=10, fig.height=8, cache = T}
+mort %>% 
+  dplyr::select(mean.temp, rel.humid, SO2, SO2_log, TSP) %>% 
+  gather(key = "variable", value = "value") %>% 
+  ggplot(aes(x = value, y = ..density..)) +
+  geom_histogram() +
+  facet_wrap(~variable, ncol = 2, scales = "free") +
+  labs(x = "")
+
+# p1 <- ggplot(mort,
+#        aes(x = mean.temp, y = ..density..)) +
+#   geom_histogram(binwidth = 1)
+# 
+# p2 <- ggplot(mort,
+#        aes(x = rel.humid, y = ..density..)) +
+#   geom_histogram(binwidth = 3)
+# 
+# p3 <- ggplot(mort,
+#        aes(x = SO2, y = ..density..)) +
+#   geom_histogram(binwidth = 15)
+# 
+# p4 <- ggplot(mort,
+#        aes(x = SO2_log, y = ..density..)) +
+#   geom_histogram(binwidth = .1)
+# 
+# p5 <- ggplot(mort,
+#        aes(x = TSP, y = ..density..)) +
+#   geom_histogram(binwidth = 10)
+# 
+# grid.arrange(p1, p2, p3, p4, p5,
+#              ncol = 2)
 ```
-
-
-```{r, so2}
-
-
-
-```
-
 
 
 
@@ -209,45 +233,52 @@ mort <- mort %>%
 
 #### Mortality
 
-```{r, seasonal_totMort, fig.width=10, fig.height=5}
-ggplot(data = mort,
-       aes(x = day.date, y = tot_mort_prob)) +
+```{r, seasonal_totMort, fig.width=10, fig.height=6, cache = T}
+mort %>% 
+  dplyr::select(day.date, year, tot_mort_prob, resp_mort_prob) %>% 
+  gather(key = "variable", value = "value", tot_mort_prob, resp_mort_prob) %>% 
+  # mutate(variable = plyr::mapvalues(factor(variable), from = c("tot_mort_prob", "resp_mort_prob"),
+  #                             to = c("Mort. Rate", "Resp. Mort. Rate")),
+  #        variable = ordered(variable, levels = c("Mort. Rate", "Resp. Mort. Rate"))) %>% 
+  mutate(variable = plyr::mapvalues(factor(variable, levels = c("tot_mort_prob", "resp_mort_prob")),
+                                    from = c("tot_mort_prob", "resp_mort_prob"),
+                              to = c("Mort. Rate", "Resp. Mort. Rate"))) %>% 
+  ggplot(aes(x = day.date, y = value)) +
   geom_point(aes(col = factor(year)),
-             size = 1, alpha = .5,) +
+             size = 1, alpha = 1) +
   geom_smooth(method = "loess", span = .1) +
-  # scale_x_continuous(breaks = seq(0, 3650, by = 365)) +
-  scale_x_date(breaks = as.Date(str_c(1980:1990, "-01-01"))) +
+    scale_x_date(breaks = as.Date(str_c(1980:1990, "-01-01"))) +
   scale_color_brewer(palette = "RdBu") +
-  labs(x = "date", y = "Mortality rate (per million people)",
-       title = "Mortality rate in Milan through time") +
   theme_dark() +
-  theme(legend.position = "none")
-```
+  theme(legend.position = "none") +
+  # facet_wrap(~variable, ncol = 1, scales = "free") +
+  facet_grid(variable~., scales = "free") +
+  labs(x = "date", y = "",
+       title = "Mortality rate in Milan through time")
 
-```{r, seasonal_respMort, fig.width=10, fig.height=5}
-ggplot(data = mort,
-       aes(x = day.date, y = resp_mort_prob)) +
-  geom_point(aes(col = factor(year)),
-             size = 1, alpha = .5,) +
-  geom_smooth(method = "loess", span = .1) +
-  # scale_x_continuous(breaks = seq(0, 3650, by = 365)) +
-  scale_x_date(breaks = as.Date(str_c(1980:1990, "-01-01"))) +
-  scale_color_brewer(palette = "RdBu") +
-  labs(x = "date", y = "Respiratory mortality rate (per million people)",
-       title = "Mortality rate for respiratory issues in Milan through time") +
-  theme_dark() +
-  theme(legend.position = "none")
+# ggplot(data = mort,
+  #      aes(x = day.date, y = tot_mort_prob)) +
+  # geom_point(aes(col = factor(year)),
+  #            size = 1, alpha = 1) +
+  # geom_smooth(method = "loess", span = .1) +
+  # # scale_x_continuous(breaks = seq(0, 3650, by = 365)) +
+  # scale_x_date(breaks = as.Date(str_c(1980:1990, "-01-01"))) +
+  # scale_color_brewer(palette = "RdBu") +
+  # labs(x = "date", y = "Mortality rate (per million people)",
+  #      title = "Mortality rate in Milan through time") +
+  # theme_dark() +
+  # theme(legend.position = "none")
 ```
 
 <!-- Comment: outliers in summer 1983 and first quarter 1986  -->
 
 
-```{r, seasonal_mortTot_plotly, fig.width=10, fig.height=5}
+```{r, seasonal_mortTot_plotly, fig.width=10, fig.height=5, cache = T}
 p1 <- mort %>% 
   filter(year<10) %>% 
   ggplot(aes(x = day.of.year, y = tot_mort_prob,
              col = factor(year))) +
-  # geom_point(size = 1, alpha = .1,) +
+  # geom_point(size = 1, alpha = .1) +
   geom_smooth(method = "loess", se = F) +
   scale_x_continuous(breaks = seq(0, 365, by = 90)) +
   scale_color_brewer(palette = "RdBu") +
@@ -260,7 +291,7 @@ ggplotly(p1)
 ```
 
 
-```{r, seasonal_respTot_plotly, fig.width=10, fig.height=5}
+```{r, seasonal_respTot_plotly, fig.width=10, fig.height=5, cache = T}
 p2 <- mort %>% 
   filter(year<10) %>% 
   ggplot(aes(x = day.of.year, y = resp_mort_prob,
@@ -283,10 +314,60 @@ ggplotly(p2)
 #### Explantory variables
 
 
+```{r, fig.width=10, fig.height=10, cache = T}
+mort %>% 
+  dplyr::select(day.date, year, mean.temp, rel.humid, SO2_log, TSP) %>% 
+  gather(key = "variable", value = "value", mean.temp, rel.humid, SO2_log, TSP) %>% 
+  ggplot(aes(x = day.date, y = value)) +
+  geom_point(aes(col = factor(year)),
+             size = 1, alpha = 1) +
+  geom_smooth(method = "loess", span = .1) +
+    scale_x_date(breaks = as.Date(str_c(1980:1990, "-01-01"))) +
+  scale_color_brewer(palette = "RdBu") +
+  theme_dark() +
+  theme(legend.position = "none") +
+  # facet_wrap(~variable, ncol = 1, scales = "free") +
+  facet_grid(variable~., scales = "free") +
+  labs(x = "date", y = "")
 
-### Relations
+
+# ggplot(data = mort,
+  #      aes(x = day.date, y = mean.temp)) +
+  # geom_point(aes(col = factor(year)),
+  #            size = 1, alpha = 1) +
+  # geom_smooth(method = "loess", span = .1) +
+  # # scale_x_continuous(breaks = seq(0, 3650, by = 365)) +
+  # scale_x_date(breaks = as.Date(str_c(1980:1990, "-01-01"))) +
+  # scale_color_brewer(palette = "RdBu") +
+  # # labs(x = "date", y = "Mortality rate (per million people)",
+  # #      title = "Mortality rate in Milan through time") +
+  # theme_dark() +
+  # theme(legend.position = "none")
+```
 
 
+### Relationships between variables
+
+```{r, variables_scatterplot, fig.width=10, fig.height=10, cache = T}
+gg <- mort %>% 
+  dplyr::select(mean.temp, rel.humid, SO2_log, TSP, tot_mort_prob, resp_mort_prob) %>% 
+  ggpairs(lower = list(continuous = wrap("points", alpha = 0.1, size=1)))
+
+gg[6,6] <- ggplot(data = mort,
+                  aes(x = resp.mort)) +
+  geom_bar(color = "black", fill = "white")
+
+for(i in 2:6){
+  for(j in 1:(i-1)){
+    gg[i,j] <- gg[i,j] +
+      geom_smooth(method = "loess")
+  }
+}
+
+gg
+```
+
+<!-- Non linear relationships -->
 
 
 # Statistical Models
