@@ -32,14 +32,14 @@ ITER = 500
 
 # Model for mort  without interaction (best) ####
 
-# # Model fitting
-# fit_gam_bayes_best <- stan_gamm4(tot_mort_prob ~ s(mean.temp) + s(day.of.year) + factor(year) + factor(weekend),
-#                                  family = gaussian, data = mort,
-#                                  chains = CHAINS, iter = ITER, seed = SEED, cores = CORES)
-# # The default prior for coefficients is:
-# # normal(location = 0, scale = NULL)
-# # that means an improper prior
-# # it is a non-informative prior
+# Model fitting
+fit_gam_bayes_best <- stan_gamm4(tot_mort_prob ~ s(mean.temp) + s(day.of.year) + factor(year) + factor(weekend),
+                                 family = gaussian, data = mort,
+                                 chains = CHAINS, iter = ITER, seed = SEED, cores = CORES)
+# The default prior for coefficients is:
+# normal(location = 0, scale = NULL)
+# that means an improper prior
+# it is a non-informative prior
 
 
 print(fit_gam_bayes_best)
@@ -196,10 +196,10 @@ ppc_intervals_grouped(
 
 # Model with interaction (int) ####
 
-# # Model fitting
-# fit_gam_bayes_int <- stan_gamm4(tot_mort_prob ~ s(day.of.year, mean.temp) + factor(year) + factor(weekend),
-#                                 family = gaussian, data = mort,
-#                                 chains = CHAINS, iter = ITER, seed = SEED, cores = CORES)
+# Model fitting
+fit_gam_bayes_int <- stan_gamm4(tot_mort_prob ~ s(day.of.year, mean.temp) + factor(year) + factor(weekend),
+                                family = gaussian, data = mort,
+                                chains = CHAINS, iter = ITER, seed = SEED, cores = CORES)
 
 
 print(fit_gam_bayes_int)

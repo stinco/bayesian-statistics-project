@@ -56,9 +56,11 @@ fit_gam_noday_3 <- gam(tot_mort_prob ~ s(mean.temp, rel.humid) + SO2_log + s(TSP
 
 summary(fit_gam_noday_3)
 
-par(mfrow = c(1,2))
+par(mfrow = c(2,2))
+layout(matrix(c(1,1,2,3), ncol = 2))
 plot(fit_gam_noday_3,
-     shade = TRUE, scheme = 2)
+     shade = T, scheme = 2,
+     residuals = T, all.terms = T)
 par(mfrow = c(1,1))
 
 
@@ -76,7 +78,7 @@ par(mfrow = c(1,1))
 
 AIC(fit_gam_noday)
 AIC(fit_gam_noday_2)
-AIC(fit_gam_noday_3)
+AIC(fit_gam_noday_3) # Best model
 AIC(fit_gam_noday_4)
 
 

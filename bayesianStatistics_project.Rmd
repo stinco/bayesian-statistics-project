@@ -392,10 +392,359 @@ gg
 
 # Statistical Models
 
+## Without considering time
+
+The best predictive model for mortality rate without thaking into account the time I found is the following:
+
+$$
+\begin{align}
+\frac{Y_i}{pop_i} &= \beta_0 + s(temp_i, humid_i) + \beta_1 SO2^{log}_i + s(TSP_i) + \epsilon_i \\
+\epsilon_i &\sim \mathcal{N}(0,\sigma^2)
+\end{align}
+$$
+where:
+
+* $i$ represent a specific day;
+* $Y_i$ is the number of deaths in the day $i$;
+* $pop_i$ is the population in day $i$;
+* $temp_i$ is the average temperature in day $i$;
+* $SO2_i$ is the transformated sulphur dioxide level in ambient air in day $i$;
+* $TPS_i$ is the total suspended particles in ambient air in day $i$.
+
+The criterion for choosing it has been the AIC. To speed up the process, I decided to use classical GAM models and not bayesian models.
+
+The estimations are represented in the following chunk:
+
+```{r, fit_noday, echo = T, fig.width=10, fig.height=5, cache = T}
+fit_gam_noday <- gam(tot_mort_prob ~ s(mean.temp, rel.humid) + SO2_log + s(TSP),
+                       family = gaussian,
+                       data = mort)
+
+summary(fit_gam_noday)
+
+par(mar = c(4,4,4,3))
+layout(matrix(c(1,1,2,3), ncol = 2))
+plot(fit_gam_noday,
+     shade = T, scheme = 2,
+     residuals = T, all.terms = T)
+```
+
+As we previously observed, we can't say if the observed effect of the explanatory variables on the mortality is due to a cause-effect relation or to a spurious correlation.
+
+
+## Considering day
+
+### Model for mortality rate
+
+The best predictive model for mortality rate I found is the following:
+
+$$
+\begin{align}
+\frac{Y_i}{pop_i} &= \beta_0 + s(temp_i) + s(doy_i) + \beta_1 year_{1i} + \dots + \beta_J year_{Ji} + \beta_{J+1} weekend_i + \epsilon_i \\
+\epsilon_i &\sim \mathcal{N}(0,\sigma^2)
+\end{align}
+$$
+where:
+
+* $i$ represent a specific day;
+* $Y_i$ is the number of deaths in the day $i$;
+* $pop_i$ is the population in day $i$;
+* $temp_i$ is the average temperature in day $i$;
+* $doy_i$ is the day of the year of the day $i$ (it is a value between 1, that corresponds to 1st January, and 365, that corresponds to 31st December);
+* $year_{1i}, \dots, year_{Ji}$ are the dummy variables that represent the year (in our data the years are $1980, 1981, \dots, 1989$);
+* $weekend_i$ is a variable that indicate whether $i$ is a weekend day (saturday or sunday).
+
+To estimate the parameters I used a bayesian approach with non-informative prior $\pi(\beta)\propto k\in]0,+\infty[$.
+
+In order to perform the variable selection I tried several GAM with a classical approach for estimating the parameters, because a bayesian estimation would have taken too much time and because, using non-informative priors, the estimated values are quite similar.
+
+```{r, weekend_definition, cache = T}
+mort <- mort %>% 
+  mutate(weekend = day.of.week %in% c(6,7)) %>% 
+  select(day.num, day.of.year, year, day.of.week, weekend, holiday, everything())
+```
+
+```{r, bayes_best_fit, echo = T, message = F, cache = T}
+SEED = 1234
+CHAINS = 4
+CORES = 4
+ITER = 500
+
+fit_gam_bayes_best <- stan_gamm4(tot_mort_prob ~ s(mean.temp) + s(day.of.year) + factor(year) + factor(weekend),
+                                 family = gaussian, data = mort,
+                                 chains = CHAINS, iter = ITER, seed = SEED, cores = CORES)
+```
+
+```{r, bayes_best_coefPlot, fig.width=10, fig.height=6, message = F, cache = T}
+p1 <- plot(fit_gam_bayes_best, pars = c(str_c("factor(year)", 1:9), "factor(weekend)TRUE"),
+           prob = c(.95,.99)) +
+  geom_vline(xintercept = 0) +
+  scale_x_continuous(limits = c(-2.2, 2.2)) #+
+  # theme(plot.margin = margin(.5, .5, .5, 2, "cm"))
+
+p2 <- plot(fit_gam_bayes_best, pars = str_c("s(mean.temp).", 1:9),
+           prob = c(.95,.99)) +
+  geom_vline(xintercept = 0) +
+  scale_x_continuous(limits = c(-100, 100))
+
+p3 <- plot(fit_gam_bayes_best, pars = str_c("s(day.of.year).", 1:9),
+           prob = c(.95,.99)) +
+  geom_vline(xintercept = 0) +
+  scale_x_continuous(limits = c(-100, 100))
+
+grid.arrange(p1, p2, p3,
+             ncol = 1)
+```
+
+```{r, bayes_best_coefTab, message = F, cache = T}
+# Table with estimated coefficients
+coef_est <- as.matrix(fit_gam_bayes_best) %>% 
+  apply(FUN = mean, MARGIN = 2)
+
+coeff_int1 <- posterior_interval(fit_gam_bayes_best, prob = .90)
+coeff_int2 <- posterior_interval(fit_gam_bayes_best, prob = .95)
+coeff_int3 <- posterior_interval(fit_gam_bayes_best, prob = .99)
+coeff_int4 <- posterior_interval(fit_gam_bayes_best, prob = .999)
+
+
+coeff_int_tbb <- as_tibble(coeff_int1) %>%
+  cbind(as_tibble(coeff_int2)) %>% 
+  cbind(as_tibble(coeff_int3)) %>%
+  cbind(as_tibble(coeff_int4)) %>%
+  mutate(coeff = rownames(coeff_int1)) %>% 
+  select(coeff,
+         `0.05%`, `0.5%`, `2.5%`, `5%`,
+         everything()) %>% 
+  # `95%`, `97.5%`, `99.5%`) %>% 
+  # select(coeff, everything()) %>% 
+  mutate(signif_90 = as.logical((sign(`5%`)*sign(`95%`) + 1) / 2 ),
+         signif_95 = as.logical((sign(`2.5%`)*sign(`97.5%`) + 1) / 2 ),
+         signif_99 = as.logical((sign(`0.5%`)*sign(`99.5%`) + 1) / 2 ),
+         signif_999 = as.logical((sign(`0.05%`)*sign(`99.95%`) + 1) / 2 )) %>% 
+  mutate(mean = coef_est)
+
+
+coeff_int_tbb %>% 
+  mutate(signif = ifelse(signif_999, "***",
+                         ifelse(signif_99, "**",
+                                ifelse(signif_95, "*",
+                                       ifelse(signif_90, ".",
+                                              ""))))) %>% 
+  # select(-signif_90, -signif_95, -signif_99) %>% 
+  select(coeff, `2.5%`, mean, `97.5%`, signif) %>% 
+  knitr::kable(digits = 2)
+```
+
+In the following plot it is represented the marginal effect of `day.of.year` and `mean.temp`.
+```{r, bayes_best_nonLinear, fig.width=10, fig.height=3, cache = T}
+plot_nonlinear(fit_gam_bayes_best) +
+  theme_bw()
+```
+
+#### Considering interaction
+
+I also investigated whether is better to consider or not the interaction between `day.of.year` and `mean.temp` in the spline component of the model (i.e. considering `s(mean.temp) + s(day.of.year)` or `s(mean.temp, day.of.year)`).
+
+```{r, bayes_int_fit, echo = T, message = F, cache = T}
+fit_gam_bayes_int <- stan_gamm4(tot_mort_prob ~ s(day.of.year, mean.temp) + factor(year) + factor(weekend),
+                                family = gaussian, data = mort,
+                                chains = CHAINS, iter = ITER, seed = SEED, cores = CORES)
+```
+
+As we can see, plotting the joint effect of `mean.temp` and `day.of.year` for the two models, they are quite similar.
+
+```{r, bayes_comparisonPlot, fig.width=10, fig.height=6, warning = F, cache = T}
+grid_doy <- 1:365
+grid_temp <- seq(min(mort$mean.temp), max(mort$mean.temp), length.out = 100)
+
+grid <- expand.grid(grid_doy, grid_temp)
+names(grid) <- c("day.of.year", "mean.temp")
+
+dat_grid <- as_tibble(grid)
+
+dat_grid <- dat_grid %>%
+  mutate(year = 0,
+         weekend = FALSE)
+
+dat_grid_fit_best <- predict(fit_gam_bayes_best, newdata = dat_grid)
+dat_grid_fit_int <- predict(fit_gam_bayes_int, newdata = dat_grid)
+
+gam_temp_doy <- gam(formula = mean.temp ~ s(day.of.year),
+                    data = mort)
+
+alpha = 4
+
+dat_grid <- dat_grid %>%
+  mutate(cloud_lw = predict(gam_temp_doy, data.frame(day.of.year)) - alpha*sqrt(gam_temp_doy$sig2),
+         cloud_up = predict(gam_temp_doy, data.frame(day.of.year)) + alpha*sqrt(gam_temp_doy$sig2),
+         cloud = (cloud_lw < mean.temp & mean.temp < cloud_up))
+
+dat_grid_1 <- dat_grid %>%
+  mutate(fit = ifelse(cloud,
+                      dat_grid_fit_best,
+                      NA))
+dat_grid_2 <- dat_grid %>%
+  mutate(fit = ifelse(cloud,
+                      dat_grid_fit_int,
+                      NA))
+
+lim <- c(min(dat_grid_1$fit,
+             dat_grid_2$fit,
+             na.rm = T),
+         max(dat_grid_1$fit,
+             dat_grid_2$fit,
+             na.rm = T))
+
+p1 <- dat_grid_1 %>%
+  ggplot(aes(x = day.of.year, y = mean.temp)) +
+  geom_tile(aes(fill = fit)) +
+  geom_contour(aes(z = fit),
+               color = "white", alpha = 0.5) +
+  scale_fill_distiller(palette="Spectral", na.value="white",
+                       limits = lim) +
+  geom_point(data = mort,
+             aes(x = day.of.year, y = mean.temp),
+             size = .5) +
+  labs(title = "Model without interaction")
+
+p2 <- dat_grid_2 %>%
+  ggplot(aes(x = day.of.year, y = mean.temp)) +
+  geom_tile(aes(fill = fit)) +
+  geom_contour(aes(z = fit),
+               color = "white", alpha = 0.5) +
+  scale_fill_distiller(palette="Spectral", na.value="white",
+                       limits = lim) +
+  geom_point(data = mort,
+             aes(x = day.of.year, y = mean.temp),
+             size = .5) +
+  labs(title = "Model with interaction")
+
+grid.arrange(p1,p2,
+             ncol = 1)
+```
+
+To choose the better among the two, I used the Leave One Out Information Criterion (LOO-IC). According to it, the model without the interaction performs better.
+
+```{r, bayes_comparisonLoo, echo = T, fig.width=10, fig.height=5, cache = T}
+loo_best <- loo(fit_gam_bayes_best)
+loo_int <- loo(fit_gam_bayes_int)
+
+loo_best
+loo_int
+
+compare(loo_best,
+        loo_int)
+```
+
+
+#### Model checking
+
+The following plots are aimed to check if the model hypothesis are verified in the data.
+
+From the overlay plot and the statistics computed on the whole dataset the model looks fine.
+
+```{r, bayes_best_overlay, fig.width=10, fig.height=4, cache = T}
+y_rep <- posterior_predict(fit_gam_bayes_best, draws = ITER/2)
+
+ppc_dens_overlay(mort$tot_mort_prob, y_rep)
+```
+
+```{r, bayes_best_stats, fig.width=10, fig.height=4, message = F, cache = T}
+# Mean
+p1 <- ppc_stat(
+  y = mort$tot_mort_prob,
+  yrep = y_rep,
+  stat = 'mean'
+  )
+
+# Standard deviation
+p2 <- ppc_stat(
+  y = mort$tot_mort_prob,
+  yrep = y_rep,
+  stat = 'sd'
+  )
+
+grid.arrange(p1, p2,
+             nrow = 1)
+```
+
+Considering the statistics computed for each year, something strange appears. Looking to the plots for the standard deviation, we can see that in the years 1983 and 1986 the standard deviation in the data is much higher than expected, while in other years, like 1982, 1987 and 1988 it is lower than expected. That means that the model doesn’t describe properly the variance within years and the hypothesis of homoscedasticity is not verified.
+
+```{r, bayes_best_stats_grouped_mean, fig.width=10, fig.height=4, message = F, cache = T}
+ppc_stat_grouped(
+  y = mort$tot_mort_prob[1:(nrow(mort)-3)],
+  yrep = y_rep[, 1:(nrow(mort)-3)],
+  group = mort$year[1:(nrow(mort)-3)],
+  stat = 'mean',
+  facet_args = list(nrow = 2)
+)
+```
+
+```{r, bayes_best_stats_grouped_sd, fig.width=10, fig.height=4, message = F, cache = T}
+ppc_stat_grouped(
+  y = mort$tot_mort_prob[1:(nrow(mort)-3)],
+  yrep = y_rep[, 1:(nrow(mort)-3)],
+  group = mort$year[1:(nrow(mort)-3)],
+  stat = 'sd',
+  facet_args = list(nrow = 2)
+)
+```
+
+From the following plot we can see that in the years 1983 and 1986 there are some outliers with a particularly high mortality. In 1983 this phenomenon happened during summer, while in 1986 it happened during the first quarter.
+
+```{r, bayes_best_intervals, fig.width=10, fig.height=5, cache = T}
+# ppc_intervals(
+#   y = mort$tot_mort_prob,
+#   yrep = y_rep,
+#   x = mort$day.of.year
+# )
+
+ppc_intervals_grouped(
+  y = mort$tot_mort_prob[1:(nrow(mort)-3)],
+  yrep = y_rep[,1:(nrow(mort)-3)],
+  x = mort$day.of.year[1:(nrow(mort)-3)],
+  group = mort$year[1:(nrow(mort)-3)],
+  facet_args = list(nrow = 2))
+```
+
+
+### Model for respiratory mortality rate
+
+For modeling the number of deaths for respiratory issues, I used a Poisson distribution.
+
+The best predictive model for respiratory mortality rate I found is the following:
+
+$$
+\begin{align}
+Y^{resp}_i &\sim \mathcal{Poisson}(\lambda_i) \\
+\frac{\lambda_i}{pop_i} &= e^{\beta_0 + s(temp_i) + s(doy_i) + \beta_1 year_{1i} + \dots + \beta_J year_{Ji} + \beta_{J+1} SO2^{log}_i}
+\end{align}
+$$
+where:
+
+* $i$ represent a specific day;
+* $Y^{resp}_i$ is the number of deaths for respiratory issues in the day $i$;
+* $pop_i$ is the population in day $i$;
+* $temp_i$ is the average temperature in day $i$;
+* $doy_i$ is the day of the year of the day $i$ (it is a value between 1, that corresponds to 1st January, and 365, that corresponds to 31st December);
+* $year_{1i}, \dots, year_{Ji}$ are the dummy variables that represent the year (in our data the years are $1980, 1981, \dots, 1989$);
+* $SO2_i$ is the transformated sulphur dioxide level in ambient air in day $i$.
+
+
+```{r, bayes_resp_best_fit, echo = T, message = F, cache = T}
+fit_resp_gam_bayes_best <- stan_gamm4(resp.mort ~ offset(log(pop_m)) + s(mean.temp) + SO2_log + s(day.of.year) + factor(year),
+                                      family = poisson, data = mort,
+                                      chains = CHAINS, iter = ITER, seed = SEED, cores = CORES)
+```
+
+
+
+
 
 
 
 # Conclusions
+
 
 
 
