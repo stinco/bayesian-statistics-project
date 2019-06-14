@@ -188,6 +188,12 @@ ppc_intervals_grouped(
   facet_args = list(nrow = 2))
 
 
+# res <- (apply(y_rep, FUN = mean, MARGIN = 2) - mort$tot_mort_prob) / apply(y_rep, FUN = sd, MARGIN = 2)
+
+# plot(res)
+
+
+
 # Model with interaction (int) ####
 
 # # Model fitting

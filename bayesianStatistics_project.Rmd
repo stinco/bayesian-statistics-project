@@ -93,6 +93,8 @@ mort <- mort %>%
 
 ### Response variables
 
+In the following plots it is represented the distribution of `tot.mort` and `resp.mort`. As we can see, the determinations of `tot.mort` are big enough to model it as a continuous variable, while the determinations of `resp.mort` are much lower.
+
 ```{r, cache = T}
 p1 <- ggplot(mort,
        aes(x = tot.mort)) +
@@ -106,12 +108,17 @@ grid.arrange(p1, p2,
              ncol = 2)
 ```
 
-<!-- Commente on normal and poisson distribution -->
-
 
 #### Milan population
 
-<!-- Comment on poulation -->
+In the following plot it is represented the evolution of the Milan population, according to the ISTAT census. The data can be found [here](https://www.tuttitalia.it/lombardia/18-milano/statistiche/censimenti-popolazione/).
+As we can see, the population between 1980 and 1990 decreased.
+In order to take into account the decrement of the number of people subjected to the risk, I computed the population day by day with a linear interpolation of the census dates and used this piece of data as an exposure in the models.
+With this information I computed the mortality rate as:
+$$
+Mortality Rate = \frac{tot.mort}{population}
+$$
+Note that this is just a generic mortality rate, not a specific one. So, we are not considering the age distribution of the population. Given that within the period 1980-1990 the Milan population aged, even If the mortality at each age unchanged, the generic mortality rate would have increased.
 
 ```{r, census_readData, message = F, cache = T}
 census <- read_csv("milanoCensus.csv",
@@ -133,7 +140,7 @@ ggplot(data = census,
   scale_x_continuous(breaks = census$year,
                      minor_breaks = census$year) +
   labs(x = "year", y = "population (millions)",
-       title = "Milan population", subtitle = "ISTAT census")
+       title = "Milan population", subtitle = "Source: ISTAT census")
 ```
 
 ```{r, popInterpolation, cache = T}
@@ -189,9 +196,11 @@ mort <- mort %>%
 
 ### Explanatory variables
 
+In the following plots it is represented the distribution of the explanatory variable. As we can see, `SO2` is strongly skewed. To deal with this problem, I logarithmically transformed it. Specifically, I computed the following transformation:
+
 `SO2_log = log(SO2 + 30)`
 
-```{r, explanatory_plot, fig.width=10, fig.height=8, cache = T}
+```{r, explanatory_plot, fig.width=10, fig.height=8, cache = T, message = F}
 mort %>% 
   dplyr::select(mean.temp, rel.humid, SO2, SO2_log, TSP) %>% 
   gather(key = "variable", value = "value") %>% 
@@ -225,13 +234,14 @@ mort %>%
 ```
 
 
-
 ## Multivariate descriptive analysis
 
 
 ### Seasonal effect
 
 #### Mortality
+
+In the following plots we can see the trend of the mortality rate and the respiratory mortality rate through time. As we can see there is a strong seasonal effect, with a higher mortality in winter and a lower mortality in summer. We can spot some outliers in summer 1983 and in the first quarter 1986. In those periods the mortality was much higher than the one registered in the same period in other years.
 
 ```{r, seasonal_totMort, fig.width=10, fig.height=6, cache = T}
 mort %>% 
@@ -271,7 +281,7 @@ mort %>%
 ```
 
 <!-- Comment: outliers in summer 1983 and first quarter 1986  -->
-
+In the following plot we can compare the mortality pattern through the year between different years. As we can see, they are quite similar.
 
 ```{r, seasonal_mortTot_plotly, fig.width=10, fig.height=5, cache = T}
 p1 <- mort %>% 
@@ -313,6 +323,16 @@ ggplotly(p2)
 
 #### Explantory variables
 
+In the following plots we can see the trend of the explanatory variables through time. As we can see, all these variables have a strong dependency with time. That means that an eventual strong correlation between these variables and the mortality could be due to a [spurious correlation]( https://www.tylervigen.com/spurious-correlations).
+For example, during winter:
+
+* people work more, so they are more stressed and the accidents on the job are more frequent;
+* the light time is shorter, and that has an impact on the health;
+* there is more traffic, so the car accidents are more frequent.
+
+To deal with this problem, I inserted the period of the year in the model with a spline computed on the day of the year.
+
+Observing the `mean.temp`, trend we can see that in summer 1983, it was hotter than other summers. That could partially explain the higher mortality of that period.
 
 ```{r, fig.width=10, fig.height=10, cache = T}
 mort %>% 
@@ -348,6 +368,8 @@ mort %>%
 
 ### Relationships between variables
 
+In the following plot we can see the relationships between the variables. As we can see many of them are not linear, therefore GLM could perform poorly and a GAM could be more suitable. In particular, from the plot that represents the mean temperature and the mortality rate (`mean.temp`, `tot_mort_prob`), we can see that the mortality rate is higher when it is cold and decrease with warmer temperature, but it rapidly increase with really high temperature.
+
 ```{r, variables_scatterplot, fig.width=10, fig.height=10, cache = T}
 gg <- mort %>% 
   dplyr::select(mean.temp, rel.humid, SO2_log, TSP, tot_mort_prob, resp_mort_prob) %>% 
@@ -366,8 +388,6 @@ for(i in 2:6){
 
 gg
 ```
-
-<!-- Non linear relationships -->
 
 
 # Statistical Models
