@@ -32,6 +32,7 @@ library(loo)        # For bayesian model comparison
 library(lme4)
 library(bayesplot)
 library(knitr)
+library(kableExtra) # For kable style table
 library(tidyverse)
 library(plyr)    # For the mapvalue function
 
@@ -41,7 +42,7 @@ rstan_options(auto_write = TRUE)
 ```
 
 
-# Description of the problem
+# Problem description
 
 In this project I analysed a dataset regarding deaths in Milan. The dataset contains, for each day between 1/01/1980 and 31/12/1989:
 
@@ -111,14 +112,14 @@ grid.arrange(p1, p2,
 
 #### Milan population
 
-In the following plot it is represented the evolution of the Milan population, according to the ISTAT census. The data can be found [here](https://www.tuttitalia.it/lombardia/18-milano/statistiche/censimenti-popolazione/).
+The following plot shows the evolution of the Milan population, according to the ISTAT census. The data can be found [here](https://www.tuttitalia.it/lombardia/18-milano/statistiche/censimenti-popolazione/).
 As we can see, the population between 1980 and 1990 decreased.
 In order to take into account the decrement of the number of people subjected to the risk, I computed the population day by day with a linear interpolation of the census dates and used this piece of data as an exposure in the models.
 With this information I computed the mortality rate as:
 $$
 Mortality Rate = \frac{tot.mort}{population}
 $$
-Note that this is just a generic mortality rate, not a specific one. So, we are not considering the age distribution of the population. Given that within the period 1980-1990 the Milan population aged, even If the mortality at each age unchanged, the generic mortality rate would have increased.
+Note that this is just a generic mortality rate, not a specific one. So, we are not considering the age distribution of the population. Given that within the period 1980-1990 the Milan population aged, even If the mortality at each age had not changed, the generic mortality rate would have increased.
 
 ```{r, census_readData, message = F, cache = T}
 census <- read_csv("data/milanoCensus.csv",
@@ -241,7 +242,7 @@ mort %>%
 
 #### Mortality
 
-In the following plots we can see the trend of the mortality rate and the respiratory mortality rate through time. As we can see there is a strong seasonal effect, with a higher mortality in winter and a lower mortality in summer. We can spot some outliers in summer 1983 and in the first quarter 1986. In those periods the mortality was much higher than the one registered in the same period in other years.
+In the following plots we can see the trend of the mortality rate and the respiratory mortality rate through time. As we can see, there is a strong seasonal effect, with a higher mortality in winter and a lower mortality in summer. We can spot some outliers in summer 1983 and in the first quarter of 1986. In those periods the mortality was much higher than the one registered in the same period in other years.
 
 ```{r, seasonal_totMort, fig.width=10, fig.height=6, cache = T}
 mort %>% 
@@ -280,7 +281,6 @@ mort %>%
   # theme(legend.position = "none")
 ```
 
-<!-- Comment: outliers in summer 1983 and first quarter 1986  -->
 In the following plot we can compare the mortality pattern through the year between different years. As we can see, they are quite similar.
 
 ```{r, seasonal_mortTot_plotly, fig.width=10, fig.height=5, cache = T}
@@ -318,7 +318,7 @@ p2 <- mort %>%
 ggplotly(p2)
 ```
 
-<!-- Correggi il tooltip -->
+<!-- Correct the tooltip -->
 
 
 #### Explanatory variables
@@ -368,7 +368,7 @@ mort %>%
 
 ### Relationships between variables
 
-In the following plot we can see the relationships between the variables. As we can see many of them are not linear, therefore GLM could perform poorly and a GAM could be more suitable. In particular, from the plot that represents the mean temperature and the mortality rate (`mean.temp`, `tot_mort_prob`), we can see that the mortality rate is higher when it is cold and decrease with warmer temperature, but it rapidly increase with really high temperature.
+In the following plot we can see the relationships between the variables. As we can see, many of them are not linear, therefore a GLM could perform poorly and a GAM could be more suitable. In particular, from the plot that represents the mean temperature and the mortality rate (`mean.temp`, `tot_mort_prob`), we can see that the mortality rate is higher when it is cold and decrease with warmer temperature, but it rapidly increase with really high temperature.
 
 ```{r, variables_scatterplot, fig.width=10, fig.height=10, cache = T}
 gg <- mort %>% 
@@ -405,7 +405,7 @@ $$
 where:
 
 * $i$ represent a specific day;
-* $Y_i$ is the number of deaths in the day $i$;
+* $Y_i$ is the number of deaths in day $i$;
 * $pop_i$ is the population in day $i$;
 * $temp_i$ is the average temperature in day $i$;
 * $SO2_i$ is the transformed sulphur dioxide level in ambient air in day $i$;
@@ -447,7 +447,7 @@ $$
 where:
 
 * $i$ represent a specific day;
-* $Y_i$ is the number of deaths in the day $i$;
+* $Y_i$ is the number of deaths in day $i$;
 * $pop_i$ is the population in day $i$;
 * $temp_i$ is the average temperature in day $i$;
 * $doy_i$ is the day of the year of the day $i$ (it is a value between 1, that corresponds to 1st January, and 365, that corresponds to 31st December);
@@ -527,17 +527,19 @@ coeff_int_tbb <- as_tibble(coeff_int1) %>%
 
 
 coeff_int_tbb %>% 
-  mutate(signif = ifelse(signif_999, "***",
-                         ifelse(signif_99, "**",
-                                ifelse(signif_95, "*",
+  mutate(signif = ifelse(signif_999, ".***",
+                         ifelse(signif_99, ".**",
+                                ifelse(signif_95, ".*",
                                        ifelse(signif_90, ".",
                                               ""))))) %>% 
   # select(-signif_90, -signif_95, -signif_99) %>% 
   select(coeff, `2.5%`, mean, `97.5%`, signif) %>% 
-  knitr::kable(digits = 2)
+  knitr::kable(digits = 2) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = F)
 ```
 
-In the following plot it is represented the marginal effect of `day.of.year` and `mean.temp`.
+The following plot shows the marginal effect of `day.of.year` and `mean.temp`.
 
 ```{r, bayes_best_nonLinear, fig.width=10, fig.height=3, cache = T}
 plot_nonlinear(fit_gam_bayes_best) +
@@ -546,7 +548,7 @@ plot_nonlinear(fit_gam_bayes_best) +
 
 #### Considering interaction
 
-I also investigated whether is better to consider or not the interaction between `day.of.year` and `mean.temp` in the spline component of the model (i.e. considering `s(mean.temp) + s(day.of.year)` or `s(mean.temp, day.of.year)`).
+I also investigated whether it is better to consider or not the interaction between `day.of.year` and `mean.temp` in the spline component of the model (i.e. considering `s(mean.temp) + s(day.of.year)` or `s(mean.temp, day.of.year)`).
 
 ```{r, bayes_int_fit, echo = T, message = F, cache = T}
 fit_gam_bayes_int <- stan_gamm4(tot_mort_prob ~ s(day.of.year, mean.temp) + factor(year) + factor(weekend),
@@ -642,9 +644,9 @@ compare(loo_best,
 
 #### Model checking
 
-The following plots are aimed to check if the model hypothesis are verified in the data.
+The following plots are aimed to check whether the model assumptions are verified in the data.
 
-From the overlay plot and the statistics computed on the whole dataset the model looks fine.
+From the overlay plot and the statistics computed on the whole dataset, the model looks fine.
 
 ```{r, bayes_best_overlay, fig.width=10, fig.height=4, cache = T}
 y_rep <- posterior_predict(fit_gam_bayes_best, draws = ITER/2)
@@ -721,7 +723,7 @@ $$
 where:
 
 * $i$ represent a specific day;
-* $Y^{resp}_i$ is the number of deaths for respiratory issues in the day $i$;
+* $Y^{resp}_i$ is the number of deaths for respiratory issues in day $i$;
 * $pop_i$ is the population in day $i$;
 * $temp_i$ is the average temperature in day $i$;
 * $doy_i$ is the day of the year of the day $i$ (it is a value between 1, that corresponds to 1st January, and 365, that corresponds to 31st December);
@@ -785,17 +787,19 @@ coeff_int_tbb <- as_tibble(coeff_int1) %>%
 
 
 coeff_int_tbb %>% 
-  mutate(signif = ifelse(signif_999, "***",
-                         ifelse(signif_99, "**",
-                                ifelse(signif_95, "*",
+  mutate(signif = ifelse(signif_999, ".***",
+                         ifelse(signif_99, ".**",
+                                ifelse(signif_95, ".*",
                                        ifelse(signif_90, ".",
                                               ""))))) %>% 
   # select(-signif_90, -signif_95, -signif_99) %>% 
   select(coeff, `2.5%`, mean, `97.5%`, signif) %>% 
-  knitr::kable(digits = 2)
+  knitr::kable(digits = 2) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = F)
 ```
 
-In the following plot it is represented the marginal effect of `day.of.year` and `mean.temp`.
+The following plot shows the marginal effect of `day.of.year` and `mean.temp`.
 
 ```{r, bayes_resp_best_nonLinear, fig.width=10, fig.height=3, cache = T}
 plot_nonlinear(fit_resp_gam_bayes_best) +
@@ -805,10 +809,9 @@ plot_nonlinear(fit_resp_gam_bayes_best) +
 
 #### Model checking
 
+The following plots are aimed to check whether the model assumptions are verified in the data.
 
-The following plots are aimed to check if the model hypothesis are verified in the data.
-
-As for the previous model, the overlay plot and the statistics computed on the whole dataset the model looks fine.
+As for the previous model, from the overlay plot and the statistics computed on the whole dataset, the model looks fine.
 
 
 ```{r, bayes_resp_best_overlay, fig.width=10, fig.height=4, cache = T}
@@ -839,7 +842,7 @@ grid.arrange(p1, p2,
              nrow = 1)
 ```
 
-As in the previous model, the standard deviation of the response variable computed in the dataset, for the year 1983 and 1986 is higher than expected.
+As in the previous model, the standard deviation of the response variable computed in the dataset for the year 1983 and 1986 is higher than expected.
 
 ```{r, bayes_resp_best_stats_grouped_mean, fig.width=10, fig.height=4, message = F, cache = T}
 ppc_stat_grouped(
@@ -890,26 +893,26 @@ The variables that have a significative effect on the response are:
   - `year`
   - `SO2`
 
-That means that, even considering the time as an explanatory variable, `mean.temp` has a significative effect. Looking to the marginal effect plot for both the model (in the previous chapter) we can see that the mortality is higher when it is really cold and when it is really hot. On the contrary, `rel.humid` has not a significative effect on mortality.
+That means that, even considering the time as an explanatory variable, `mean.temp` has a significative effect. Looking to the marginal effect plot for both the model (in the previous chapter) we can see that the mortality is higher when it is really cold and when it is really hot. On the contrary, `rel.humid` doesn't have a significative effect on mortality.
 
-As regards the pollution variables (`SO2` and `TSP`), we can see that `TSP` has not a significative effect on mortality, while `SO2` has a significative effect if we consider only the death for respiratory issues. Furthermore, the `SO2` coefficient is positive, so the hypothesis that the concentration of sulphur dioxide has an impact on respiratory death is supported by the data. However, as soon as the respiratory issues are just a small part of the whole cause of death, it doesn't result significative on the mortality in general.
+For what concerns the pollution variables (`SO2` and `TSP`), we can see that `TSP` doesn't have a significative effect on mortality, while `SO2` has a significative effect if we consider only the death for respiratory issues. Furthermore, the `SO2` coefficient is positive, so the hypothesis that the concentration of sulphur dioxide has an impact on respiratory death is supported by the data. However, since the respiratory issues are just a small part of the whole cause of death, it doesn't result significative on the mortality in general.
 
 The `weekend` has a significative effect on the mortality in general, while it doesn't affect respiratory mortality. The coefficient of `weekend` is negative, so on weekend the mortality is lower. This is probably due to the fact that on weekend people don’t work and there is less traffic, so there are less accidents at work and by car and the people are more relaxed and less stressed.
 
 
 # Possible improvements
 
-A great improvement for the model would be obtained by obtaining new variables as the cause of death and the age at death. With the cause of death, we could build a model for each cause and then ensemble them to built a more accurate model. With the age at death we could build models for specific mortality rate and take into account the age distribution.
+A great improvement for the model would be obtained by **using new variables** as the cause of death and the age at death. With the cause of death we could build a model for each cause and then ensemble them to built a more accurate model. With the age at death we could build models for specific mortality rate and take into account the age distribution.
 
-To improve the estimations without getting more data we could consider the effect of `day.of.year` not just as a spline on the values between 1 and 365, but as a periodic function, with period 365. That would bring to a function with $s(0) = s(365)$ that would be more reasonable for our problem.
+To improve the estimations without getting more data we could consider the effect of `day.of.year` not just as a spline on the values between 1 and 365, but as a **periodic function**, with period 365. That would bring to a function with $s(0) = s(365)$ that would be more reasonable for our problem.
 
-To deal with the outliers we could also consider other kind of models, like the quasi-Poisson and the negative binomial. I tried with it, but I had trouble with the non-convergence of the Markov Chains.
+To deal with the outliers we could also consider other kind of models, like the **Quasi-Poisson** and the **Negative Binomial**. I tried with the Negative Binomial, but I incurred in trouble with the non-convergence of the Markov Chains.
 
-Another idea would be to insert the effect of the year not just as an additive factor, but as another spline function on the day number (that goes from $1$ to $10\times 365$). Thus the effect would be: `s(day.of.year) + s(day.num)`. This approach would better fit the data, but it would reduce the interpretability of the model.
+Another idea would be to insert the effect of the year not just as an additive factor, but as another **spline function on the day number** (that goes from $1$ to $10\times 365$). Thus the effect would be: `s(day.of.year) + s(day.num)`. This approach would better fit the data, but it would reduce the interpretability of the model.
 
-Otherwise, keeping the year additive effect, we can consider to build a hierarchical model in which `year` constitute the deeper level and `day.of.year` the higher level. This model would be useful to make predictions on the future because the `year` wouldn't be an explanatory variable with realizations only in $1, \dots, J$.
+Otherwise, keeping the year additive effect, we can consider to build a **hierarchical model** in which `year` constitute the deeper level and `day.of.year` the higher level. This model would be useful to make predictions on the future because the `year` wouldn't be an explanatory variable with realizations only in $1, \dots, J$.
 
-Finally a different approach that could work fine with this data is an Auto Regressive model, that could deal with the seasonality adding the correlation between the mortality in each day and the mortality in 365 days before.
+Finally a different approach that could work fine with this data is an **Auto Regressive model**, that could deal with the seasonality adding the correlation between the mortality in each day and the mortality in 365 days before.
 
 
 
