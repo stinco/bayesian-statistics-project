@@ -44,7 +44,7 @@ rstan_options(auto_write = TRUE)
 
 # Problem description
 
-In this project I analysed a dataset regarding deaths in Milan. The dataset contains, for each day between 1/01/1980 and 31/12/1989:
+In this project, I analysed a dataset regarding deaths in Milan. The dataset contains, for each day between 1/01/1980 and 31/12/1989:
 
 * the number of deaths occurred in Milan (`tot.mort`);
 * the number of deaths for respiratory issues in Milan (`resp.mort`).
@@ -94,7 +94,7 @@ mort <- mort %>%
 
 ### Response variables
 
-In the following plots it is represented the distribution of `tot.mort` and `resp.mort`. As we can see, the determinations of `tot.mort` are big enough to model it as a continuous variable, while the determinations of `resp.mort` are much lower.
+The following plots show the distribution of `tot.mort` and `resp.mort`. As we can see, the determinations of `tot.mort` are big enough to model it as a continuous variable, while the determinations of `resp.mort` are much lower.
 
 ```{r, cache = T}
 p1 <- ggplot(mort,
@@ -197,9 +197,7 @@ mort <- mort %>%
 
 ### Explanatory variables
 
-In the following plots it is represented the distribution of the explanatory variable. As we can see, `SO2` is strongly skewed. To deal with this problem, I logarithmically transformed it. Specifically, I computed the following transformation:
-
-`SO2_log = log(SO2 + 30)`
+The following plots show the distribution of the explanatory variable. As we can see, `SO2` is strongly skewed. To deal with this problem, I logarithmically transformed it. Specifically, I computed the following transformation: `SO2_log = log(SO2 + 30)`
 
 ```{r, explanatory_plot, fig.width=10, fig.height=8, cache = T, message = F}
 mort %>% 
@@ -242,7 +240,8 @@ mort %>%
 
 #### Mortality
 
-In the following plots we can see the trend of the mortality rate and the respiratory mortality rate through time. As we can see, there is a strong seasonal effect, with a higher mortality in winter and a lower mortality in summer. We can spot some outliers in summer 1983 and in the first quarter of 1986. In those periods the mortality was much higher than the one registered in the same period in other years.
+<!-- In the following plots, we can see the evolution of both total and respiratory mortality rates through time. -->
+The following plots show the trends of both total and respiratory mortality rates with respect to time. As we can see, there is a strong seasonal effect, with a higher mortality in winter and a lower mortality in summer. We can spot some outliers in summer 1983 and in the first quarter of 1986. In those periods, the mortality was much higher than the one registered in the same period in other years.
 
 ```{r, seasonal_totMort, fig.width=10, fig.height=6, cache = T}
 mort %>% 
@@ -281,7 +280,7 @@ mort %>%
   # theme(legend.position = "none")
 ```
 
-In the following plot we can compare the mortality pattern through the year between different years. As we can see, they are quite similar.
+In the following plot, we can compare the mortality pattern through the year between different years. As we can see, they are quite similar.
 
 ```{r, seasonal_mortTot_plotly, fig.width=10, fig.height=5, cache = T}
 p1 <- mort %>% 
@@ -323,16 +322,17 @@ ggplotly(p2)
 
 #### Explanatory variables
 
-In the following plots we can see the trend of the explanatory variables through time. As we can see, all these variables have a strong dependency with time. That means that an eventual strong correlation between these variables and the mortality could be due to a [spurious correlation]( https://www.tylervigen.com/spurious-correlations).
+<!-- In the following plots, we can see the trend of the explanatory variables through time. -->
+The following plots show the trends of the explanatory variables with respect to time. As we can see, all these variables have a strong dependency with time. That means that an eventual strong correlation between these variables and the mortality could be due to a [spurious correlation]( https://www.tylervigen.com/spurious-correlations).
 For example, during winter:
 
-* people work more, so they are more stressed and the accidents on the job are more frequent;
-* the light time is shorter, and that has an impact on the health;
-* there is more traffic, so the car accidents are more frequent.
+* people work more, so they are more stressed and accidents on the job are more frequent;
+* light time is shorter, and that has an impact on health;
+* there is more traffic, so car accidents are more frequent.
 
 To deal with this problem, I inserted the period of the year in the model with a spline computed on the day of the year.
 
-Observing the `mean.temp`, trend we can see that in summer 1983, it was hotter than other summers. That could partially explain the higher mortality of that period.
+Observing the `mean.temp` trend we can see that in summer 1983, it was hotter than other summers. That could partially explain the higher mortality of that period.
 
 ```{r, fig.width=10, fig.height=10, cache = T}
 mort %>% 
@@ -368,7 +368,7 @@ mort %>%
 
 ### Relationships between variables
 
-In the following plot we can see the relationships between the variables. As we can see, many of them are not linear, therefore a GLM could perform poorly and a GAM could be more suitable. In particular, from the plot that represents the mean temperature and the mortality rate (`mean.temp`, `tot_mort_prob`), we can see that the mortality rate is higher when it is cold and decrease with warmer temperature, but it rapidly increase with really high temperature.
+In the following plot, we can see the relationships between the variables. As we can see, many of them are not linear, therefore a GLM could perform poorly and a GAM could be more suitable. In particular, from the plot that represents the mean temperature and the mortality rate (`mean.temp`, `tot_mort_prob`), we can see that the mortality rate is higher when it is cold and decreases with warmer temperature, but it rapidly increase with really high temperature.
 
 ```{r, variables_scatterplot, fig.width=10, fig.height=10, cache = T}
 gg <- mort %>% 
@@ -394,7 +394,8 @@ gg
 
 ## Without considering time
 
-The best predictive model for mortality rate without taking into account the time I found is the following:
+<!-- The best predictive model for mortality rate without taking into account time I found is the following: -->
+The best model among those tested for predicting mortality rate without taking time into account is the following:
 
 $$
 \begin{align}
@@ -417,8 +418,8 @@ The estimations are represented in the following chunk:
 
 ```{r, fit_noday, echo = T, fig.width=10, fig.height=5, cache = T}
 fit_gam_noday <- gam(tot_mort_prob ~ s(mean.temp, rel.humid) + SO2_log + s(TSP),
-                       family = gaussian,
-                       data = mort)
+                     family = gaussian,
+                     data = mort)
 
 summary(fit_gam_noday)
 
@@ -432,7 +433,7 @@ plot(fit_gam_noday,
 As we previously observed, we can't say if the observed effect of the explanatory variables on the mortality is due to a cause-effect relation or to a spurious correlation.
 
 
-## Considering day
+## Considering time
 
 ### Model for mortality rate
 
@@ -446,7 +447,7 @@ $$
 $$
 where:
 
-* $i$ represent a specific day;
+* $i$ represents a specific day;
 * $Y_i$ is the number of deaths in day $i$;
 * $pop_i$ is the population in day $i$;
 * $temp_i$ is the average temperature in day $i$;
@@ -456,7 +457,7 @@ where:
 
 To estimate the parameters I used a Bayesian approach with non-informative prior $\pi(\beta)\propto k\in]0,+\infty[$.
 
-In order to perform the variable selection I tried several GAM with a classical approach for estimating the parameters, because a Bayesian estimation would have taken too much time and because, using non-informative priors, the estimated values are quite similar.
+In order to perform the variable selection, I tried several GAM with a classical approach for estimating the parameters, because a Bayesian estimation would have taken too much time and because, using non-informative priors, the estimated values are quite similar.
 
 The estimations are represented in the following chunk:
 
@@ -628,7 +629,7 @@ grid.arrange(p1,p2,
              ncol = 1)
 ```
 
-To choose the better among the two, I used the Leave One Out Information Criterion (LOO-IC). According to it, the model without the interaction performs better.
+To choose the better among the two, I used the Leave One Out Information Criterion (LOO-IC). According to it, the model without interaction performs better.
 
 ```{r, bayes_comparisonLoo, echo = T, fig.width=10, fig.height=5, cache = T}
 loo_best <- loo(fit_gam_bayes_best)
@@ -710,7 +711,8 @@ ppc_intervals_grouped(
 
 ### Model for respiratory mortality rate
 
-For modeling the number of deaths for respiratory issues, I used a Poisson distribution.
+<!-- For modeling the number of deaths for respiratory issues, I used a Poisson distribution. -->
+I used a Poisson distribution for modeling the number of deaths for respiratory issues.
 
 The best predictive model for respiratory mortality rate I found is the following:
 
@@ -722,7 +724,7 @@ Y^{resp}_i &\sim \mathcal{Poisson}(\lambda_i) \\
 $$
 where:
 
-* $i$ represent a specific day;
+* $i$ represents a specific day;
 * $Y^{resp}_i$ is the number of deaths for respiratory issues in day $i$;
 * $pop_i$ is the population in day $i$;
 * $temp_i$ is the average temperature in day $i$;
@@ -897,22 +899,20 @@ That means that, even considering the time as an explanatory variable, `mean.tem
 
 For what concerns the pollution variables (`SO2` and `TSP`), we can see that `TSP` doesn't have a significative effect on mortality, while `SO2` has a significative effect if we consider only the death for respiratory issues. Furthermore, the `SO2` coefficient is positive, so the hypothesis that the concentration of sulphur dioxide has an impact on respiratory death is supported by the data. However, since the respiratory issues are just a small part of the whole cause of death, it doesn't result significative on the mortality in general.
 
-The `weekend` has a significative effect on the mortality in general, while it doesn't affect respiratory mortality. The coefficient of `weekend` is negative, so on weekend the mortality is lower. This is probably due to the fact that on weekend people don’t work and there is less traffic, so there are less accidents at work and by car and the people are more relaxed and less stressed.
+The `weekend` has a significative effect on the mortality in general, while it doesn't affect respiratory mortality. The coefficient of `weekend` is negative, so on weekend the mortality is lower. This is probably due to the fact that on weekend people work less and there is less traffic, so there are less accidents at work and by car and people are more relaxed and less stressed.
 
 
 # Possible improvements
 
-A great improvement for the model would be obtained by **using new variables** as the cause of death and the age at death. With the cause of death we could build a model for each cause and then ensemble them to built a more accurate model. With the age at death we could build models for specific mortality rate and take into account the age distribution.
+A great improvement for the model would be obtained by **using new variables**, such as the cause of death and the age at death. With the cause of death we could build a model for each cause and then ensemble them to built a more accurate model. With the age at death we could build models for specific mortality rate and take into account the age distribution.
 
-To improve the estimations without getting more data we could consider the effect of `day.of.year` not just as a spline on the values between 1 and 365, but as a **periodic function**, with period 365. That would bring to a function with $s(0) = s(365)$ that would be more reasonable for our problem.
+To improve the estimations without getting more data, we could consider the effect of `day.of.year` not just as a spline on the values between 1 and 365, but as a **periodic function**, with period 365. That would bring to a function with $s(0) = s(365)$ that would be more reasonable for our problem.
 
-To deal with the outliers we could also consider other kind of models, like the **Quasi-Poisson** and the **Negative Binomial**. I tried with the Negative Binomial, but I incurred in trouble with the non-convergence of the Markov Chains.
+To deal with the outliers we could also consider other kind of models, like the **Quasi-Poisson** and the **Negative Binomial**. I tried with the Negative Binomial, but I incurred in troubles with the non-convergence of the Markov Chains.
 
 Another idea would be to insert the effect of the year not just as an additive factor, but as another **spline function on the day number** (that goes from $1$ to $10\times 365$). Thus the effect would be: `s(day.of.year) + s(day.num)`. This approach would better fit the data, but it would reduce the interpretability of the model.
 
-Otherwise, keeping the year additive effect, we can consider to build a **hierarchical model** in which `year` constitute the deeper level and `day.of.year` the higher level. This model would be useful to make predictions on the future because the `year` wouldn't be an explanatory variable with realizations only in $1, \dots, J$.
+Otherwise, keeping the year additive effect, we can consider to build a **hierarchical model** in which `year` constitute the deeper level and `day.of.year` the higher level. This model would be useful to make predictions on the future, because the `year` wouldn't be an explanatory variable with realizations only in $1, \dots, J$.
 
-Finally a different approach that could work fine with this data is an **Auto Regressive model**, that could deal with the seasonality adding the correlation between the mortality in each day and the mortality in 365 days before.
-
-
-
+Finally, a different approach that could work fine with this data is an **Auto Regressive model**, that could deal with the seasonality, adding for each day the correlation between mortality in that day and mortality 365 days before.
+ <!-- adding the correlation between the mortality in each day and the mortality in 365 days before. -->
