@@ -34,7 +34,7 @@ library(bayesplot)
 library(knitr)
 library(kableExtra) # For kable style table
 library(tidyverse)
-library(plyr)    # For the mapvalue function
+library(plyr)       # For the mapvalue function
 
 # Set plot themes
 theme_set(theme_bw())
